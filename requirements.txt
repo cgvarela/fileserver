@@ -1,0 +1,6 @@
+twisted>=13.0.0
+demjson
+oursql
+pyasn1
+pyopenssl
+pygpgme

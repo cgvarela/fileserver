@@ -1,0 +1,13 @@
+*.sock
+*.sock.lock
+*.pyc
+*.pid
+dropin.cache
+.gnupg*
+/server.key
+/server.crt
+/*.log
+/*.log.*
+/.idea
+/build
+/*.egg-info
