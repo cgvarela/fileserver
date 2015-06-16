@@ -171,6 +171,9 @@ class Fileserver(resource.Resource, service.Service):
         self.logTraffic = config['debug']
         self.network = config['network']
         self.servername = config['host']
+        self.storage = None
+        self.keyring = None
+        self.factory = None
 
     def setup(self):
         # initialize storage
@@ -202,7 +205,6 @@ class Fileserver(resource.Resource, service.Service):
         svc = StreamServerEndpointService(endpoint, self.factory)
         svc._raiseSynchronously = True
         return svc
-
 
     def _sslVerify(self, conn, cert, errno, depth, preverify_ok):
         # TODO is this safe?

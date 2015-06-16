@@ -31,6 +31,7 @@ from gnutls.crypto import OpenPGPCertificate
 from OpenSSL.crypto import X509
 
 import log
+import keyring
 
 
 class IKontalkCertificate(credentials.ICredentials):
@@ -47,6 +48,7 @@ class KontalkCertificate(object):
 
     def check(self, fingerprint, kr, verify_cb=None):
         _jid = None
+        fpr = None
 
         if isinstance(self.cert, OpenPGPCertificate):
             uid = self.cert.uid(0)
@@ -54,17 +56,15 @@ class KontalkCertificate(object):
             fpr = self.cert.fingerprint
 
         elif isinstance(self.cert, X509):
-            if keyring.verify_certificate(self.cert):
-                keydata = keyring.get_pgp_publickey_extension(self.cert)
-                if keydata:
-                    pkey = OpenPGPCertificate(keydata)
-                    if pkey:
-                        uid = pkey.uid(0)
-                        if uid:
-                            _jid = jid.JID(uid.email)
-                            fpr = kr.check_user_key(keydata, _jid.user)
-                            if not fpr:
-                                _jid = None
+            fpr = keyring.verify_certificate(self.cert, kr)
+            if fpr:
+                pkey = kr.get_key(fpr)
+                uid = pkey.uids[0]
+                if uid:
+                    _jid = jid.JID(uid.email)
+                    fpr = kr.check_user_key(pkey, _jid.user)
+                    if not fpr:
+                        _jid = None
 
         if _jid:
             def _continue(userjid):

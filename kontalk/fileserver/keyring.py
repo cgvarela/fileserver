@@ -21,6 +21,8 @@
 import base64
 import gpgme
 import gpgme.editutil
+import math
+from os import path
 
 from twisted.words.protocols.jabber import jid
 
@@ -88,13 +90,17 @@ def convert_openpgp_from_base64(keydata):
             return base64.b64decode(keydata[start+2:end])
 
 
-def get_key_fingerprint(keydata):
-    cert = OpenPGPCertificate(keydata, OPENPGP_FMT_RAW)
-    if cert:
-        return cert.fingerprint
+def get_key_fingerprint(keydata, kr):
+    try:
+        fp, unused = kr.import_key(keydata)
+        return fp
+    except (ValueError, TypeError):
+        cert = OpenPGPCertificate(keydata, OPENPGP_FMT_RAW)
+        if cert:
+            return cert.fingerprint
 
 
-def verify_certificate(cert):
+def verify_certificate(cert, kr):
     """
     Verify that a certificate is signed by the same key owning the PGP public
     key block contained in the custom X.509 extension.
@@ -108,10 +114,12 @@ def verify_certificate(cert):
 
     if pubkey and pubkey_ext:
         # WARNING this goes "internal error" sometimes
-        pubkey2 = convert_publickey(pubkey_ext, get_key_fingerprint(pubkey_ext))
+        fingerprint = get_key_fingerprint(pubkey_ext, kr)
+        pubkey2 = convert_publickey(pubkey_ext, fingerprint)
 
         # compare public keys
-        return pubkey == pubkey2
+        if pubkey == pubkey2:
+            return fingerprint
 
     return False
 
@@ -276,23 +284,14 @@ class Keyring:
             traceback.print_exc()
             return False
 
-    def get_key(self, userid, fingerprint):
+    def get_key(self, fingerprint):
         """
         Retrieves a user's key from the cache keyring.
-        @return keydata on success, None otherwise
+        @return key object on success, None otherwise
         """
-        # retrieve the requested key
-        try:
-            key = self.ctx.get_key(fingerprint)
-            if key:
-                keydata = BytesIO()
-                self.ctx.export(str(key.subkeys[0].fpr), keydata)
-                return keydata.getvalue()
-        except:
-            import traceback
-            traceback.print_exc()
+        return self.ctx.get_key(fingerprint)
 
-    def check_user_key(self, keydata, userid):
+    def check_user_key(self, key, userid):
         """
         Does some checks on a user public key, checking for server signatures and if uid matches.
         This method also caches the fingerprint in our internal cache.
@@ -300,13 +299,7 @@ class Keyring:
         """
         # TODO raise exceptions
         try:
-            # import key
-            result = self.ctx.import_(BytesIO(keydata))
-            #for d in dir(result):
-            #    print d, getattr(result, d)
-            fp = str(result.imports[0][0]).upper()
-            key = self.ctx.get_key(fp)
-
+            fp = key.subkeys[0].fpr
             if self._check_key(userid, key, fp):
                 return self._cache_fingerprint(userid, fp, key)
 
