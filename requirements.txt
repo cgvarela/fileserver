@@ -1,6 +1,6 @@
 twisted>=13.0.0
 demjson
 oursql
-pyasn1
+pyasn1>=0.1.8
 pyopenssl
 pygpgme
